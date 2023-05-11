@@ -106,3 +106,42 @@ generate-kubernetes-manifests:
 	echo "# Copyright The OpenTelemetry Authors" > kubernetes/opentelemetry-demo.yaml
 	echo "# SPDX-License-Identifier: Apache-2.0" >> kubernetes/opentelemetry-demo.yaml
 	helm template opentelemetry-demo open-telemetry/opentelemetry-demo --namespace otel-demo | sed '/helm.sh\/chart\:/d' | sed '/helm.sh\/hook/d' | sed '/managed-by\: Helm/d' >> kubernetes/opentelemetry-demo.yaml
+
+# fork helpers
+
+
+run: 
+	docker compose -f docker-compose.yml up --no-build --remove-orphans
+
+apps: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps  frontendproxy frontend redis-cart cartservice ffs_postgres featureflagservice loadgenerator
+
+obs: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps frontend frontendproxy otelcol jaeger prometheus grafana
+
+cart: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps redis-cart cartservice
+
+ad: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps adservice
+
+checkout: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps kafka checkoutservice
+
+grafana: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps grafana
+
+otelcol: 
+	docker compose -f docker-compose.yml up --force-recreate  otelcol
+
+prometheus: 
+	docker compose -f docker-compose.yml up --force-recreate  prometheus
+
+neo4j: 
+	docker compose -f docker-compose.yml up --force-recreate  neo4j
+
+storyteller: 
+	docker compose -f docker-compose.yml up --force-recreate storyteller
+
+frontendproxy: 
+	docker compose -f docker-compose.yml up --force-recreate --no-build  --no-deps  frontendproxy

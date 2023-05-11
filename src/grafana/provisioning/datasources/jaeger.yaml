@@ -11,3 +11,15 @@ datasources:
     url: http://jaeger:16686/jaeger/ui
     editable: true
     isDefault: false
+    jsonData:
+      httpMethod: GET
+      serviceMap:
+        datasourceUid: 'webstore-metrics'
+      nodeGraph:
+        enabled: true
+      tracesToMetrics:
+        datasourceUid: 'webstore-metrics'
+        tags: [ { key: 'service.name', value: 'service' }]
+        queries:
+          - name: 'Rate query'
+            query: 'sum(rate(tempo_spanmetrics_latency_bucket{$__tags}[5m]))'

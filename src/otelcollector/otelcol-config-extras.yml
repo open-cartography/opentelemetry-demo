@@ -1,4 +1,84 @@
-# Copyright The OpenTelemetry Authors
-# SPDX-License-Identifier: Apache-2.0
-# extra settings to be merged into OpenTelemetry Collector configuration
-# do not delete this file
+exporters:
+  logging:
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    target_info:
+      enabled: true
+  otlp/jaeger:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+processors:
+  attributes:
+    actions:
+      - action: insert
+        key: service_name
+        from_attribute: container_name
+
+  transform/grafanacloudapm:
+    trace_statements:
+      - context: span
+        statements:
+          - replace_match(attributes["http.target"], "/api/products/*", "/api/products/{productId}")
+          - set(name, Concat([attributes["http.method"], attributes["http.target"]], " ")) where name == "HTTP GET" and attributes["http.target"] != nil
+          - set(name, Concat([attributes["http.method"], attributes["http.target"]], " ")) where name == "HTTP POST" and attributes["http.target"] != nil
+  batch:
+  filter:
+    error_mode: ignore
+  metricstransform:
+    transforms:
+      - include: traces.spanmetrics.duration
+        action: update
+        new_name: traces.spanmetrics.latency
+      - include: traces.spanmetrics.calls
+        action: update
+        new_name: traces.spanmetrics.calls.total
+
+connectors:
+  spanmetrics:
+    namespace: "traces.spanmetrics"
+    histogram:
+      unit: "s"
+      explicit:
+    dimensions_cache_size: 1500
+
+    # Additional list of dimensions on top of:
+    # - service.name
+    # - span.name
+    # - span.kind
+    # - status.code
+    dimensions:
+      # If the span is missing http.method, the connector will insert
+      # the http.method dimension with value 'GET'.
+      - name: http.method
+        default: GET
+
+      # If a default is not provided, the http.status_code dimension will be omitted
+      # if the span does not contain http.status_code.
+      - name: http.status_code
+
+    # The period on which all metrics (whose dimension keys remain in cache) will be emitted.
+    # Default: 15s.
+    metrics_flush_interval: 30s
+  servicegraph:
+    store:
+      ttl: 5s
+      max_items: 1000
+    virtual_node_peer_attributes:
+      - db.name
+      - rpc.service
+
+service:
+  pipelines:
+    traces/connector:
+      receivers: [otlp]
+      processors: [filter, transform/grafanacloudapm, batch]
+      exporters: [spanmetrics, servicegraph]
+    metrics/connector:
+      receivers: [spanmetrics, servicegraph]
+      processors: [metricstransform, batch]
+      exporters: [prometheusremotewrite]
+    traces/jaeger:
+      receivers: [ otlp ]
+      processors: [ transform/grafanacloudapm, batch ]
+      exporters: [ otlp/jaeger ]
